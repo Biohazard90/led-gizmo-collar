@@ -1,10 +1,14 @@
 
 #include <Arduino.h>
 #include <ArduinoBLE.h>
+#include <Arduino_LSM9DS1.h>
 
 #include <Adafruit_NeoPixel.h>
+#include <PDM.h>
 
 #include <gizmoled.h>
+
+void onPDMdata();
 
 void ConnectionFX(float frameTime, uint8_t *rgb);
 void AnimateBlink(float frameTime);
@@ -12,6 +16,9 @@ void AnimateWheel(float frameTime);
 void AnimateSparkle(float frameTime);
 void AnimatePulse(float frameTime);
 void AnimateChristmas(float frameTime);
+void AnimateAcceleration(float frameTime);
+void AnimateNoiseLevel(float frameTime);
+void AnimateEmpty(float frameTime);
 
 
 /// BLINK
@@ -108,38 +115,155 @@ EFFECT_VAR_SLIDER(rainbowSpeed)
 END_EFFECT_SETTINGS()
 
 
+/// ACCELERATION
+BEGIN_EFFECT_SETTINGS(accel, EFFECTNAME_ACCELERATION,
+	DECLARE_EFFECT_SETTINGS_COLOR(GizmoLED::VARNAME_COLOR, 0, 0xFF, 0)
+DECLARE_EFFECT_SETTINGS_COLOR(GizmoLED::VARNAME_COLOR1, 0xFF, 0xFF, 0)
+DECLARE_EFFECT_SETTINGS_COLOR(GizmoLED::VARNAME_COLOR2, 0xFF, 0, 0)
+DECLARE_EFFECT_SETTINGS_SLIDER(GizmoLED::VARNAME_BRIGHTNESS, 255, 1, 255)
+DECLARE_EFFECT_SETTINGS_SLIDER(GizmoLED::VARNAME_SPEED, 30, 1, 100)
+)
+EFFECT_VAR_COLOR(color0)
+EFFECT_VAR_COLOR(color1)
+EFFECT_VAR_COLOR(color2)
+EFFECT_VAR_SLIDER(brightness)
+EFFECT_VAR_SLIDER(speed)
+END_EFFECT_SETTINGS()
+
+
+/// NOISE FX
+BEGIN_EFFECT_SETTINGS(noise, EFFECTNAME_NOISELEVEL,
+	DECLARE_EFFECT_SETTINGS_COLOR(GizmoLED::VARNAME_COLOR, 0, 0, 0xFF)
+DECLARE_EFFECT_SETTINGS_COLOR(GizmoLED::VARNAME_COLOR1, 0xFF, 0, 0xFF)
+DECLARE_EFFECT_SETTINGS_SLIDER(GizmoLED::VARNAME_BRIGHTNESS, 255, 1, 255)
+DECLARE_EFFECT_SETTINGS_SLIDER(GizmoLED::VARNAME_SPEED, 30, 1, 100)
+DECLARE_EFFECT_SETTINGS_SLIDER(GizmoLED::VARNAME_SENSITIVITY, 50, 1, 100)
+)
+EFFECT_VAR_COLOR(color0)
+EFFECT_VAR_COLOR(color1)
+EFFECT_VAR_SLIDER(brightness)
+EFFECT_VAR_SLIDER(speed)
+EFFECT_VAR_SLIDER(sensitivity)
+END_EFFECT_SETTINGS()
+
+
+/// EMPTY
+BEGIN_EFFECT_SETTINGS(empty, EFFECTNAME_EMPTY,
+	DECLARE_EFFECT_SETTINGS_COLOR(GizmoLED::VARNAME_COLOR, 0xFF, 0xFF, 0)
+)
+EFFECT_VAR_COLOR(color)
+END_EFFECT_SETTINGS()
+
+
 // EFFECT LIST
 BEGIN_EFFECTS()
-DECLARE_EFFECT(christmas, AnimateChristmas, GizmoLED::EFFECTTYPE_DEFAULT)
+DECLARE_EFFECT(empty, AnimateEmpty, GizmoLED::EFFECTTYPE_DEFAULT)
 DECLARE_EFFECT(blink, AnimateBlink, GizmoLED::EFFECTTYPE_DEFAULT)
 DECLARE_EFFECT(wheel, AnimateWheel, GizmoLED::EFFECTTYPE_DEFAULT)
 DECLARE_EFFECT(pulse, AnimatePulse, GizmoLED::EFFECTTYPE_DEFAULT)
+DECLARE_EFFECT(christmas, AnimateChristmas, GizmoLED::EFFECTTYPE_DEFAULT)
 DECLARE_EFFECT(sparkle, AnimateSparkle, GizmoLED::EFFECTTYPE_DEFAULT)
+DECLARE_EFFECT(noise, AnimateNoiseLevel, GizmoLED::EFFECTTYPE_DEFAULT)
+DECLARE_EFFECT(accel, AnimateAcceleration, GizmoLED::EFFECTTYPE_DEFAULT)
 END_EFFECTS()
 
 
+#if 0
 #define LED_BUFFER_SIZE_COLLAR 9
 #define LED_PIN_COLLAR 3
+#else
+#define LED_BUFFER_SIZE_COLLAR 36
+#define LED_PIN_COLLAR 9
+#endif
 
 uint8_t *ledBufferCollar;
 Adafruit_NeoPixel ledAccessCollar(LED_BUFFER_SIZE_COLLAR, LED_PIN_COLLAR, NEO_GRB + NEO_KHZ800);
 
+// buffer to read samples into, each sample is 16-bits
+short sampleBuffer[256];
+
+// number of samples read
+volatile int samplesRead;
+
+void onPDMdata()
+{
+	// query the number of bytes available
+	int bytesAvailable = PDM.available();
+
+	// read into the sample buffer
+	PDM.read(sampleBuffer, bytesAvailable);
+
+	// 16-bit, 2 bytes per sample
+	samplesRead = bytesAvailable / 2;
+}
+
+float GetAudioAmt(float frameTime)
+{
+	float amt = 0;
+	for (int i = 0; i < samplesRead; i++)
+	{
+		amt = MAX(amt, sampleBuffer[i]);
+	}
+	return amt;
+}
 
 #define ADD_CLAMPED_COLOR(buffer, position, additiveColor, factor) \
 					{buffer[(position) * 3] = min(255, buffer[(position) * 3] + additiveColor[1] * (factor)); \
 					buffer[(position) * 3 + 1] = min(255, buffer[(position) * 3 + 1] + additiveColor[0] * (factor)); \
 					buffer[(position) * 3 + 2] = min(255, buffer[(position) * 3 + 2] + additiveColor[2] * (factor));}
 
+bool wasImuActive = false;
+bool wasMicActive = false;
+void StartEffect(int newEffectType, int lastEffectType)
+{
+	switch (lastEffectType)
+	{
+	case EFFECTNAME_ACCELERATION:
+	{
+		if (wasImuActive)
+		{
+			IMU.end();
+		}
+		wasImuActive = false;
+	}
+	break;
+
+	case EFFECTNAME_NOISELEVEL:
+	{
+		if (wasMicActive)
+		{
+			PDM.end();
+		}
+		wasMicActive = false;
+	}
+	break;
+	}
+
+	switch (newEffectType)
+	{
+	case EFFECTNAME_ACCELERATION:
+		wasImuActive = IMU.begin();
+		break;
+
+	case EFFECTNAME_NOISELEVEL:
+		wasMicActive = PDM.begin(1, 16000);
+		break;
+	}
+}
+
 void setup()
 {
-	Serial.begin(9600);
+	//Serial.begin(9600);
 	//while (!Serial);
 
 	// LED init
 	ledAccessCollar.begin();
 	ledBufferCollar = ledAccessCollar.getPixels();
 
+	PDM.onReceive(onPDMdata);
+
 	GizmoLED::connectionAnimation = ConnectionFX;
+	GizmoLED::effectChangedCallback = StartEffect;
 	GIZMOLED_SETUP();
 }
 
@@ -243,7 +367,9 @@ void AnimateWheel(float frameTime)
 	};
 
 	const float pos = wheelTime * (LED_BUFFER_SIZE_COLLAR);
-	wheelTime += frameTime * *wheelSettings::speed / 100.0f;
+	float dt = frameTime * (*wheelSettings::speed / 100.0f);
+	dt = MIN(dt, 1.0f);
+	wheelTime += dt;
 	while (wheelTime >= 1.0f)
 	{
 		wheelTime -= 1.0f;
@@ -338,11 +464,12 @@ void AnimateSparkle(float frameTime)
 	};
 
 	// Update sparkle data
+	const float sparkleDecayDt = frameTime * sparkleDecay * 10.0f;
 	for (int s = 0; s < sparkleCount; ++s)
 	{
 		if (visualizerSparkleTimers[s] > 0.0f)
 		{
-			visualizerSparkleTimers[s] -= frameTime * sparkleDecay * 10.0f;
+			visualizerSparkleTimers[s] -= sparkleDecayDt;
 			if (visualizerSparkleTimers[s] <= 0.0f)
 			{
 				visualizerSparkleTimers[s] = 0.0f;
@@ -380,7 +507,9 @@ float pulseTimer = 0.0f;
 
 void AnimatePulse(float frameTime)
 {
-	pulseTimer += frameTime * *pulseSettings::speed / 40.0f;
+	float dt = frameTime * (*pulseSettings::speed / 40.0f);
+	dt = MIN(1.0f, dt);
+	pulseTimer += dt;
 	while (pulseTimer >= 1.0f)
 	{
 		pulseTimer -= 1.0f;
@@ -468,12 +597,14 @@ void AnimateChristmas(float frameTime)
 
 	const int spacing = *christmasSettings::length;
 	const int pos = wheelTime * spacing;
-	wheelTime += frameTime * *christmasSettings::speed / 50.0f;
+	float dt = frameTime * (*christmasSettings::speed / 50.0f);
+	dt = MIN(1.0f, dt);
+	wheelTime += dt;
 	while (wheelTime >= 1.0f)
 	{
 		wheelTime -= 1.0f;
 	}
-	
+
 	if (*christmasSettings::rainbowEnabled != 0)
 	{
 		const float rainbowSpeed = *christmasSettings::rainbowSpeed / 100.0f;
@@ -492,5 +623,161 @@ void AnimateChristmas(float frameTime)
 		ledBufferCollar[l * 3] = adjustedColor[1] * light;
 		ledBufferCollar[l * 3 + 1] = adjustedColor[0] * light;
 		ledBufferCollar[l * 3 + 2] = adjustedColor[2] * light;
+	}
+}
+
+float gX = 0, gY = 0, gZ = 0;
+float accelBlendSmooth = 0.0f;
+
+void AnimateAcceleration(float frameTime)
+{
+	float x = 0, y = 0, z = 0;
+	while (IMU.accelerationAvailable())
+	{
+		IMU.readAcceleration(x, y, z);
+	}
+
+	float blend = 0.0f;
+	const float length = sqrtf(x * x + y * y + z * z);
+	if (length > 0.0001f)
+	{
+		float nX, nY, nZ;
+		nX = x / length;
+		nY = y / length;
+		nZ = z / length;
+
+		const float gravityRate = frameTime;
+		gX += (nX - gX) * gravityRate;
+		gY += (nY - gY) * gravityRate;
+		gZ += (nZ - gZ) * gravityRate;
+
+		const float gLength = sqrtf(gX * gX + gY * gY + z * z);
+		if (gLength > 0.0001f)
+		{
+			gX /= gLength;
+			gY /= gLength;
+			gZ /= gLength;
+
+			float dX = x - gX;
+			float dY = y - gY;
+			float dZ = z - gZ;
+
+			blend = sqrtf(dX * dX + dY * dY + dZ * dZ);
+			if (blend < 0.05f)
+			{
+				blend = 0.0f;
+			}
+		}
+	}
+
+	const float speed = *accelSettings::speed / 50.0f;
+	float dt = frameTime * speed;
+	dt = MIN(1.0f, dt);
+	accelBlendSmooth += (blend - accelBlendSmooth) * dt;
+
+	const float brightness = *accelSettings::brightness / 255.0f;
+	uint8_t adjustedColor[3] =
+	{
+		accelSettings::color0[0],
+		accelSettings::color0[1],
+		accelSettings::color0[2],
+	};
+
+	const float thresholdA = 0.6f;
+	const float thresholdB = 1.2f;
+	const float thresholdC = 1.7f;
+
+	if (accelBlendSmooth > thresholdB)
+	{
+		adjustedColor[0] = (accelSettings::color2[0] - accelSettings::color1[0]) * MIN((accelBlendSmooth - thresholdB) / (thresholdC - thresholdB), 1.0f) + accelSettings::color1[0];
+		adjustedColor[1] = (accelSettings::color2[1] - accelSettings::color1[1]) * MIN((accelBlendSmooth - thresholdB) / (thresholdC - thresholdB), 1.0f) + accelSettings::color1[1];
+		adjustedColor[2] = (accelSettings::color2[2] - accelSettings::color1[2]) * MIN((accelBlendSmooth - thresholdB) / (thresholdC - thresholdB), 1.0f) + accelSettings::color1[2];
+	}
+	else if (accelBlendSmooth > thresholdA)
+	{
+		adjustedColor[0] += (accelSettings::color1[0] - adjustedColor[0]) * MIN((accelBlendSmooth - thresholdA) / (thresholdB - thresholdA), 1.0f);
+		adjustedColor[1] += (accelSettings::color1[1] - adjustedColor[1]) * MIN((accelBlendSmooth - thresholdA) / (thresholdB - thresholdA), 1.0f);
+		adjustedColor[2] += (accelSettings::color1[2] - adjustedColor[2]) * MIN((accelBlendSmooth - thresholdA) / (thresholdB - thresholdA), 1.0f);
+	}
+
+	adjustedColor[0] *= brightness;
+	adjustedColor[1] *= brightness;
+	adjustedColor[2] *= brightness;
+
+	for (int l = 0; l < LED_BUFFER_SIZE_COLLAR; ++l)
+	{
+		ledBufferCollar[l * 3] = adjustedColor[1];
+		ledBufferCollar[l * 3 + 1] = adjustedColor[0];
+		ledBufferCollar[l * 3 + 2] = adjustedColor[2];
+	}
+}
+
+float noiseBlendSmooth = 0.0f;
+
+void AnimateNoiseLevel(float frameTime)
+{
+	const float noiseAmt = GetAudioAmt(frameTime) / 350.0f;
+	const float brightness = *noiseSettings::brightness / 255.0f;
+	uint8_t adjustedColor[3] =
+	{
+		noiseSettings::color0[0],
+		noiseSettings::color0[1],
+		noiseSettings::color0[2],
+	};
+
+	const float speed = *noiseSettings::speed / 10.0f;
+	float dt = frameTime * speed;
+	dt = MIN(1.0f, dt);
+	noiseBlendSmooth += (noiseAmt - noiseBlendSmooth) * dt;
+
+	const float sensitivity = 1.0f - (*noiseSettings::sensitivity / 100.0f);
+
+	const float thresholdA = 0.2f;
+	const float thresholdB = thresholdA + 1.6f * sensitivity;
+
+	adjustedColor[0] += (noiseSettings::color1[0] - adjustedColor[0]) * MIN((noiseBlendSmooth - thresholdA) / (thresholdB - thresholdA), 1.0f);
+	adjustedColor[1] += (noiseSettings::color1[1] - adjustedColor[1]) * MIN((noiseBlendSmooth - thresholdA) / (thresholdB - thresholdA), 1.0f);
+	adjustedColor[2] += (noiseSettings::color1[2] - adjustedColor[2]) * MIN((noiseBlendSmooth - thresholdA) / (thresholdB - thresholdA), 1.0f);
+
+	adjustedColor[0] *= brightness;
+	adjustedColor[1] *= brightness;
+	adjustedColor[2] *= brightness;
+
+	for (int l = 0; l < LED_BUFFER_SIZE_COLLAR; ++l)
+	{
+		ledBufferCollar[l * 3] = adjustedColor[1];
+		ledBufferCollar[l * 3 + 1] = adjustedColor[0];
+		ledBufferCollar[l * 3 + 2] = adjustedColor[2];
+	}
+}
+
+float emptyAnim = 0.0f;
+
+void AnimateEmpty(float frameTime)
+{
+	uint8_t adjustedColor[3] =
+	{
+		emptySettings::color[0],
+		emptySettings::color[1],
+		emptySettings::color[2],
+	};
+
+	for (int l = 0; l < LED_BUFFER_SIZE_COLLAR; ++l)
+	{
+		ledBufferCollar[l * 3] = 0;
+		ledBufferCollar[l * 3 + 1] = 0;
+		ledBufferCollar[l * 3 + 2] = 0;
+	}
+
+	emptyAnim += frameTime;
+	if (emptyAnim >= 1.0f)
+	{
+		ledBufferCollar[0] = adjustedColor[1];
+		ledBufferCollar[1] = adjustedColor[0];
+		ledBufferCollar[2] = adjustedColor[2];
+		if (emptyAnim >= 2.0f)
+		{
+			emptyAnim = 0.0f;
+		}
 	}
 }
