@@ -8,6 +8,11 @@
 
 #include <gizmoled.h>
 
+// Only used for noise functions until they add support for the Nano 33 BLE Sense
+#include <FastLED.h>
+
+#define TEST_DEVICE 0
+
 void onPDMdata();
 
 void ConnectionFX(float frameTime, uint8_t *rgb);
@@ -19,6 +24,9 @@ void AnimateChristmas(float frameTime);
 void AnimateAcceleration(float frameTime);
 void AnimateNoiseLevel(float frameTime);
 void AnimateEmpty(float frameTime);
+void AnimateWaves(float frameTime);
+void AnimateDrops(float frameTime);
+void AnimateWipe(float frameTime);
 
 
 /// BLINK
@@ -60,18 +68,24 @@ END_EFFECT_SETTINGS()
 /// SPARKLE
 BEGIN_EFFECT_SETTINGS(sparkle, EFFECTNAME_SPARKLE,
 	DECLARE_EFFECT_SETTINGS_SLIDER(GizmoLED::VARNAME_BRIGHTNESS, 255, 1, 255)
-DECLARE_EFFECT_SETTINGS_COLOR(GizmoLED::VARNAME_COLOR, 0xFF, 0, 0)
-DECLARE_EFFECT_SETTINGS_SLIDER(GizmoLED::VARNAME_DECAY, 10, 1, 100)
-DECLARE_EFFECT_SETTINGS_SLIDER(GizmoLED::VARNAME_LENGTH, 3, 1, 100)
+DECLARE_EFFECT_SETTINGS_SLIDER(GizmoLED::VARNAME_BACKGROUNDBRIGHTNESS, 16, 1, 255)
+DECLARE_EFFECT_SETTINGS_COLOR(GizmoLED::VARNAME_COLOR, 0xFF, 0xFF, 0xFF)
+DECLARE_EFFECT_SETTINGS_COLOR(GizmoLED::VARNAME_COLORBACKGROUND, 0x11, 0, 0x44)
+DECLARE_EFFECT_SETTINGS_SLIDER(GizmoLED::VARNAME_SPEED, 10, 1, 100)
+DECLARE_EFFECT_SETTINGS_SLIDER(GizmoLED::VARNAME_LENGTH, 10, 1, 50)
 DECLARE_EFFECT_SETTINGS_CHECKBOX(GizmoLED::VARNAME_RAINBOWENABLED, 1)
 DECLARE_EFFECT_SETTINGS_SLIDER(GizmoLED::VARNAME_RAINBOWSPEED, 10, 1, 100)
+DECLARE_EFFECT_SETTINGS_SLIDER(GizmoLED::VARNAME_RAINBOWOFFSET, 90, 1, 180)
 )
 EFFECT_VAR_SLIDER(brightness)
+EFFECT_VAR_SLIDER(backgroundBrightness)
 EFFECT_VAR_COLOR(color)
-EFFECT_VAR_SLIDER(decay)
+EFFECT_VAR_COLOR(background)
+EFFECT_VAR_SLIDER(speed)
 EFFECT_VAR_SLIDER(length)
 EFFECT_VAR_CHECKBOX(rainbowEnabled)
 EFFECT_VAR_SLIDER(rainbowSpeed)
+EFFECT_VAR_SLIDER(rainbowOffset)
 END_EFFECT_SETTINGS()
 
 
@@ -147,6 +161,64 @@ EFFECT_VAR_SLIDER(sensitivity)
 END_EFFECT_SETTINGS()
 
 
+/// WAVES
+BEGIN_EFFECT_SETTINGS(waves, EFFECTNAME_WAVES,
+	DECLARE_EFFECT_SETTINGS_COLOR(GizmoLED::VARNAME_COLOR, 0xFF, 0, 0xFF)
+	DECLARE_EFFECT_SETTINGS_COLOR(GizmoLED::VARNAME_COLOR1, 0, 0xFF, 0xFF)
+DECLARE_EFFECT_SETTINGS_SLIDER(GizmoLED::VARNAME_BRIGHTNESS, 255, 1, 255)
+DECLARE_EFFECT_SETTINGS_SLIDER(GizmoLED::VARNAME_SPEED, 50, 1, 100)
+DECLARE_EFFECT_SETTINGS_SLIDER(GizmoLED::VARNAME_LENGTH, 50, 1, 100)
+DECLARE_EFFECT_SETTINGS_CHECKBOX(GizmoLED::VARNAME_RAINBOWENABLED, 1)
+DECLARE_EFFECT_SETTINGS_SLIDER(GizmoLED::VARNAME_RAINBOWSPEED, 10, 1, 100)
+DECLARE_EFFECT_SETTINGS_SLIDER(GizmoLED::VARNAME_RAINBOWOFFSET, 45, 1, 180)
+)
+EFFECT_VAR_COLOR(color)
+EFFECT_VAR_COLOR(color1)
+EFFECT_VAR_SLIDER(brightness)
+EFFECT_VAR_SLIDER(speed)
+EFFECT_VAR_SLIDER(length)
+EFFECT_VAR_CHECKBOX(rainbowEnabled)
+EFFECT_VAR_SLIDER(rainbowSpeed)
+EFFECT_VAR_SLIDER(rainbowOffset)
+END_EFFECT_SETTINGS()
+
+
+/// DROPS
+BEGIN_EFFECT_SETTINGS(drops, EFFECTNAME_DROPS,
+	DECLARE_EFFECT_SETTINGS_SLIDER(GizmoLED::VARNAME_BRIGHTNESS, 255, 1, 255)
+DECLARE_EFFECT_SETTINGS_COLOR(GizmoLED::VARNAME_COLOR, 0xFF, 0, 0)
+DECLARE_EFFECT_SETTINGS_SLIDER(GizmoLED::VARNAME_DECAY, 10, 1, 100)
+DECLARE_EFFECT_SETTINGS_SLIDER(GizmoLED::VARNAME_LENGTH, 5, 1, 100)
+DECLARE_EFFECT_SETTINGS_CHECKBOX(GizmoLED::VARNAME_RAINBOWENABLED, 1)
+DECLARE_EFFECT_SETTINGS_SLIDER(GizmoLED::VARNAME_RAINBOWSPEED, 10, 1, 100)
+)
+EFFECT_VAR_SLIDER(brightness)
+EFFECT_VAR_COLOR(color)
+EFFECT_VAR_SLIDER(decay)
+EFFECT_VAR_SLIDER(length)
+EFFECT_VAR_CHECKBOX(rainbowEnabled)
+EFFECT_VAR_SLIDER(rainbowSpeed)
+END_EFFECT_SETTINGS()
+
+
+/// WIPE
+BEGIN_EFFECT_SETTINGS(wipe, EFFECTNAME_WIPE,
+	DECLARE_EFFECT_SETTINGS_COLOR(GizmoLED::VARNAME_COLOR, 0xFF, 0, 0xFF)
+	DECLARE_EFFECT_SETTINGS_COLOR(GizmoLED::VARNAME_COLOR1, 0, 0xFF, 0xFF)
+DECLARE_EFFECT_SETTINGS_SLIDER(GizmoLED::VARNAME_BRIGHTNESS, 255, 1, 255)
+DECLARE_EFFECT_SETTINGS_SLIDER(GizmoLED::VARNAME_SPEED, 20, 1, 100)
+DECLARE_EFFECT_SETTINGS_CHECKBOX(GizmoLED::VARNAME_RAINBOWENABLED, 0)
+DECLARE_EFFECT_SETTINGS_SLIDER(GizmoLED::VARNAME_RAINBOWOFFSET, 45, 1, 180)
+)
+EFFECT_VAR_COLOR(color)
+EFFECT_VAR_COLOR(color1)
+EFFECT_VAR_SLIDER(brightness)
+EFFECT_VAR_SLIDER(speed)
+EFFECT_VAR_CHECKBOX(rainbowEnabled)
+EFFECT_VAR_SLIDER(rainbowOffset)
+END_EFFECT_SETTINGS()
+
+
 /// EMPTY
 BEGIN_EFFECT_SETTINGS(empty, EFFECTNAME_EMPTY,
 	DECLARE_EFFECT_SETTINGS_COLOR(GizmoLED::VARNAME_COLOR, 0xFF, 0xFF, 0)
@@ -161,14 +233,17 @@ DECLARE_EFFECT(empty, AnimateEmpty, GizmoLED::EFFECTTYPE_DEFAULT)
 DECLARE_EFFECT(blink, AnimateBlink, GizmoLED::EFFECTTYPE_DEFAULT)
 DECLARE_EFFECT(wheel, AnimateWheel, GizmoLED::EFFECTTYPE_DEFAULT)
 DECLARE_EFFECT(pulse, AnimatePulse, GizmoLED::EFFECTTYPE_DEFAULT)
-DECLARE_EFFECT(christmas, AnimateChristmas, GizmoLED::EFFECTTYPE_DEFAULT)
 DECLARE_EFFECT(sparkle, AnimateSparkle, GizmoLED::EFFECTTYPE_DEFAULT)
+DECLARE_EFFECT(waves, AnimateWaves, GizmoLED::EFFECTTYPE_DEFAULT)
+DECLARE_EFFECT(wipe, AnimateWipe, GizmoLED::EFFECTTYPE_DEFAULT)
+DECLARE_EFFECT(drops, AnimateDrops, GizmoLED::EFFECTTYPE_DEFAULT)
+DECLARE_EFFECT(christmas, AnimateChristmas, GizmoLED::EFFECTTYPE_DEFAULT)
 DECLARE_EFFECT(noise, AnimateNoiseLevel, GizmoLED::EFFECTTYPE_DEFAULT)
 DECLARE_EFFECT(accel, AnimateAcceleration, GizmoLED::EFFECTTYPE_DEFAULT)
 END_EFFECTS()
 
 
-#if 0
+#if TEST_DEVICE
 #define LED_BUFFER_SIZE_COLLAR 9
 #define LED_PIN_COLLAR 3
 #else
@@ -253,8 +328,10 @@ void StartEffect(int newEffectType, int lastEffectType)
 
 void setup()
 {
+#if TEST_DEVICE
 	//Serial.begin(9600);
 	//while (!Serial);
+#endif
 
 	// LED init
 	ledAccessCollar.begin();
@@ -404,102 +481,61 @@ void AnimateWheel(float frameTime)
 	}
 }
 
-const int sparkleCount = 5;
-float visualizerSparkleTimers[sparkleCount] = { 0.0f };
-int visualizerSparklePositions[sparkleCount] = { 0 };
-float sparkleRainbowHue[sparkleCount] = { 0.0f };
-
-#define SPARKLE_TIME 1.2f
-#define SPARKLE_FADE_IN 0.2f
-
-float nextSparkleHue = 0.0f;
-float sparkleTriggerTimers[sparkleCount] = { 0.0f };
-void SimulateSparkle(float frameTime)
-{
-	for (int a = 0; a < sparkleCount; ++a)
-	{
-		sparkleTriggerTimers[a] += frameTime * 1.5f * (sparkleCount * 2 - a) / float(sparkleCount * 2);
-
-		if (sparkleTriggerTimers[a] >= 1.0f &&
-			visualizerSparkleTimers[a] == 0.0f)
-		{
-			//GizmoLED::audioData[a] = 1.0f;
-			sparkleTriggerTimers[a] = 0.0f;
-
-			visualizerSparklePositions[a] = random(0, LED_BUFFER_SIZE_COLLAR);
-			visualizerSparkleTimers[a] = SPARKLE_TIME;
-			if (*sparkleSettings::rainbowEnabled != 0)
-			{
-				sparkleRainbowHue[a] = nextSparkleHue;
-				nextSparkleHue += *sparkleSettings::rainbowSpeed;
-				while (nextSparkleHue >= 360.0f)
-				{
-					nextSparkleHue -= 360.0f;
-				}
-			}
-		}
-	}
-}
+float sparkleRainbowTime = 0.0f;
 
 void AnimateSparkle(float frameTime)
 {
-	SimulateSparkle(frameTime);
+ 	const float speed = *sparkleSettings::speed / 50.0f;
+ 	const float length = *sparkleSettings::length / 50.0f;
+ 	const float brightness = *sparkleSettings::brightness / 255.0f;
+ 	const float backgroundBrightness = *sparkleSettings::backgroundBrightness / 255.0f;
 
-	const float sparkleDecay = *sparkleSettings::decay / 100.0f;
-	const float sparkleLength = *sparkleSettings::length;
+  uint8_t n[LED_BUFFER_SIZE_COLLAR] = {0};
+  fill_raw_noise8(n, LED_BUFFER_SIZE_COLLAR, 1, 0, 96, millis() * speed);
 
-	for (int l = 0; l < LED_BUFFER_SIZE_COLLAR; ++l)
-	{
-		ledBufferCollar[l * 3] = 0;
-		ledBufferCollar[l * 3 + 1] = 0;
-		ledBufferCollar[l * 3 + 2] = 0;
-	}
+  uint8_t adjustedColor[3];
+  uint8_t backgroundColor[3];
 
-	const float brightness = *sparkleSettings::brightness / 255.0f;
-	uint8_t adjustedColor[] =
-	{
-		sparkleSettings::color[0] * brightness,
-		sparkleSettings::color[1] * brightness,
-		sparkleSettings::color[2] * brightness
-	};
-
-	// Update sparkle data
-	const float sparkleDecayDt = frameTime * sparkleDecay * 10.0f;
-	for (int s = 0; s < sparkleCount; ++s)
-	{
-		if (visualizerSparkleTimers[s] > 0.0f)
+  const uint8_t minNoise = 200 - length * 200;
+  if (*sparkleSettings::rainbowEnabled)
+  {
+    const float rainbowSpeed = *sparkleSettings::rainbowSpeed / 500.0f;
+    sparkleRainbowTime += frameTime * rainbowSpeed;
+		while (sparkleRainbowTime >= 1.0f)
 		{
-			visualizerSparkleTimers[s] -= sparkleDecayDt;
-			if (visualizerSparkleTimers[s] <= 0.0f)
-			{
-				visualizerSparkleTimers[s] = 0.0f;
-			}
-			else
-			{
-				if (*sparkleSettings::rainbowEnabled != 0)
-				{
-					HSV2RGB(sparkleRainbowHue[s], 100.0f, brightness * 100.0f, adjustedColor);
-				}
-
-				int basePos = visualizerSparklePositions[s];
-				basePos -= sparkleLength / 2;
-				float sparkleB = visualizerSparkleTimers[s];
-				if (sparkleB > 1.0f)
-					sparkleB = 1.0f - (sparkleB - 1.0f) / SPARKLE_FADE_IN;
-
-				if (basePos < 0)
-					basePos += (LED_BUFFER_SIZE_COLLAR);
-
-				for (int i = 0; i < sparkleLength; ++i)
-				{
-					const int pos = (basePos + i) % LED_BUFFER_SIZE_COLLAR;
-					const float amp = 1.0f - abs(i - sparkleLength / 2.0f) / sparkleLength * 2.0f;
-
-					ADD_CLAMPED_COLOR(ledBufferCollar, pos, adjustedColor, sparkleB * amp);
-				}
-			}
+			sparkleRainbowTime -= 1.0f;
 		}
-	}
+
+    const float rainbowOffset = *sparkleSettings::rainbowOffset / 360.0f;
+
+    HSV2RGB(sparkleRainbowTime * 360.0f, 100.0f, brightness * 100.0f, adjustedColor);
+    HSV2RGB(fmod(sparkleRainbowTime + rainbowOffset, 1.0f) * 360.0f, 100.0f, backgroundBrightness * 100.0f, backgroundColor);
+  }
+  else
+  {
+    adjustedColor[0] = sparkleSettings::color[0] * brightness;
+    adjustedColor[1] = sparkleSettings::color[1] * brightness;
+    adjustedColor[2] = sparkleSettings::color[2] * brightness;
+    backgroundColor[0] = sparkleSettings::background[0] * backgroundBrightness;
+    backgroundColor[1] = sparkleSettings::background[1] * backgroundBrightness;
+    backgroundColor[2] = sparkleSettings::background[2] * backgroundBrightness;
+  }
+
+  const int deltaColor[] =
+  {
+    (int)adjustedColor[0] - (int)backgroundColor[0],
+    (int)adjustedColor[1] - (int)backgroundColor[1],
+    (int)adjustedColor[2] - (int)backgroundColor[2]
+  };
+
+  for (int l = 0; l < LED_BUFFER_SIZE_COLLAR; ++l)
+  {
+    float light = map(MAX(minNoise, n[l]), minNoise, 255, 0, 255) / 255.0f;
+
+    ledBufferCollar[l * 3] = light * deltaColor[1] + (int)backgroundColor[1];
+    ledBufferCollar[l * 3 + 1] = light * deltaColor[0] + (int)backgroundColor[0];
+    ledBufferCollar[l * 3 + 2] = light * deltaColor[2] + (int)backgroundColor[2];
+  }
 }
 
 uint32_t pulseCount = 0;
@@ -780,4 +816,207 @@ void AnimateEmpty(float frameTime)
 			emptyAnim = 0.0f;
 		}
 	}
+}
+
+float wavesRainbowTime = 0.0f;
+float wavesTime = 0.0f;
+
+void AnimateWaves(float frameTime)
+{
+ 	const float speed = *wavesSettings::speed / 20.0f;
+ 	const float length = 1.0f - *wavesSettings::length / 100.0f;
+ 	const float brightness = *wavesSettings::brightness / 255.0f;
+
+  uint8_t adjustedColor[3];
+  uint8_t backgroundColor[3];
+
+  wavesTime += frameTime * speed;
+
+  if (*wavesSettings::rainbowEnabled)
+  {
+    const float rainbowSpeed = *wavesSettings::rainbowSpeed / 500.0f;
+    wavesRainbowTime += frameTime * rainbowSpeed;
+		while (wavesRainbowTime >= 1.0f)
+		{
+			wavesRainbowTime -= 1.0f;
+		}
+
+    const float rainbowOffset = *wavesSettings::rainbowOffset / 360.0f;
+
+    HSV2RGB(wavesRainbowTime * 360.0f, 100.0f, brightness * 100.0f, adjustedColor);
+    HSV2RGB(fmod(wavesRainbowTime + rainbowOffset, 1.0f) * 360.0f, 100.0f, brightness * 100.0f, backgroundColor);
+  }
+  else
+  {
+    adjustedColor[0] = wavesSettings::color[0] * brightness;
+    adjustedColor[1] = wavesSettings::color[1] * brightness;
+    adjustedColor[2] = wavesSettings::color[2] * brightness;
+
+    backgroundColor[0] = wavesSettings::color1[0] * brightness;
+    backgroundColor[1] = wavesSettings::color1[1] * brightness;
+    backgroundColor[2] = wavesSettings::color1[2] * brightness;
+  }
+
+  const int deltaColor[] =
+  {
+    (int)adjustedColor[0] - (int)backgroundColor[0],
+    (int)adjustedColor[1] - (int)backgroundColor[1],
+    (int)adjustedColor[2] - (int)backgroundColor[2]
+  };
+
+  for (int l = 0; l < LED_BUFFER_SIZE_COLLAR; ++l)
+  {
+    float light = sin(l * length + wavesTime) * 0.5f + 0.5f;
+    ledBufferCollar[l * 3] = light * deltaColor[1] + (int)backgroundColor[1];
+    ledBufferCollar[l * 3 + 1] = light * deltaColor[0] + (int)backgroundColor[0];
+    ledBufferCollar[l * 3 + 2] = light * deltaColor[2] + (int)backgroundColor[2];
+  }
+}
+
+const int dropsCount = 5;
+float visualizerDropsTimers[dropsCount] = { 0.0f };
+int visualizerDropsPositions[dropsCount] = { 0 };
+float dropsRainbowHue[dropsCount] = { 0.0f };
+
+#define DROPS_TIME 1.2f
+#define DROPS_FADE_IN 0.2f
+
+float nextDropsHue = 0.0f;
+float dropsTriggerTimers[dropsCount] = { 0.0f };
+void SimulateDrops(float frameTime)
+{
+	for (int a = 0; a < dropsCount; ++a)
+	{
+		dropsTriggerTimers[a] += frameTime * 1.5f * (dropsCount * 2 - a) / float(dropsCount * 2);
+
+		if (dropsTriggerTimers[a] >= 1.0f &&
+			visualizerDropsTimers[a] == 0.0f)
+		{
+			dropsTriggerTimers[a] = 0.0f;
+
+			visualizerDropsPositions[a] = random(0, LED_BUFFER_SIZE_COLLAR);
+			visualizerDropsTimers[a] = DROPS_TIME;
+			if (*dropsSettings::rainbowEnabled != 0)
+			{
+				dropsRainbowHue[a] = nextDropsHue;
+				nextDropsHue += *dropsSettings::rainbowSpeed;
+				while (nextDropsHue >= 360.0f)
+				{
+					nextDropsHue -= 360.0f;
+				}
+			}
+		}
+	}
+}
+
+void AnimateDrops(float frameTime)
+{
+	SimulateDrops(frameTime);
+
+	const float dropsDecay = *dropsSettings::decay / 100.0f;
+	const float dropsLength = *dropsSettings::length;
+
+	for (int l = 0; l < LED_BUFFER_SIZE_COLLAR; ++l)
+	{
+		ledBufferCollar[l * 3] = 0;
+		ledBufferCollar[l * 3 + 1] = 0;
+		ledBufferCollar[l * 3 + 2] = 0;
+	}
+
+	const float brightness = *dropsSettings::brightness / 255.0f;
+	uint8_t adjustedColor[] =
+	{
+		dropsSettings::color[0] * brightness,
+		dropsSettings::color[1] * brightness,
+		dropsSettings::color[2] * brightness
+	};
+
+	// Update drops data
+	const float dropsDecayDt = frameTime * dropsDecay * 10.0f;
+  float centerPos = int(dropsLength / 2);
+  if ((*dropsSettings::length % 2) == 1)
+    centerPos += 1.0f;
+
+	for (int s = 0; s < dropsCount; ++s)
+	{
+		if (visualizerDropsTimers[s] > 0.0f)
+		{
+			visualizerDropsTimers[s] -= dropsDecayDt;
+			if (visualizerDropsTimers[s] <= 0.0f)
+			{
+				visualizerDropsTimers[s] = 0.0f;
+			}
+			else
+			{
+				if (*dropsSettings::rainbowEnabled != 0)
+				{
+					HSV2RGB(dropsRainbowHue[s], 100.0f, brightness * 100.0f, adjustedColor);
+				}
+
+				int basePos = visualizerDropsPositions[s];
+				basePos -= centerPos;
+				float dropsB = visualizerDropsTimers[s];
+        const float dropFrac = dropsB / DROPS_TIME;
+				if (dropsB > 1.0f)
+					dropsB = 1.0f - (dropsB - 1.0f) / DROPS_FADE_IN;
+
+				if (basePos < 0)
+					basePos += (LED_BUFFER_SIZE_COLLAR);
+
+				for (int i = 0; i < dropsLength; ++i)
+				{
+					const int pos = (basePos + i) % LED_BUFFER_SIZE_COLLAR;
+					float amp = abs(i - centerPos) / centerPos;
+          float ampInv = 1.0f - amp;
+          amp = powf(amp, 4.0f);
+          ampInv = powf(ampInv, 4.0f);
+
+          float ampBlend = dropFrac * (ampInv - amp) + amp;
+					ADD_CLAMPED_COLOR(ledBufferCollar, pos, adjustedColor, dropsB * ampBlend);
+				}
+			}
+		}
+	}
+}
+
+float wipeRainbowOffset = 0.0f;
+float wipeTime = 0.0f;
+int wipeCount = 0;
+
+void AnimateWipe(float frameTime)
+{
+ 	const float speed = *wipeSettings::speed / 75.0f;
+ 	const float brightness = *wipeSettings::brightness / 255.0f;
+  const float rainbowOffset = *wipeSettings::rainbowOffset;
+
+  uint8_t adjustedColor[3];
+
+  wipeTime += frameTime * speed;
+  while (wipeTime >= 1.0f)
+  {
+    wipeTime -= 1.0f;
+    ++wipeCount;
+    wipeRainbowOffset = fmod(wipeRainbowOffset + rainbowOffset, 360.0f);
+  }
+
+  const int wipePos = (LED_BUFFER_SIZE_COLLAR * 2) * wipeTime;
+
+  if (*wipeSettings::rainbowEnabled)
+  {
+    HSV2RGB(wipeRainbowOffset, 100.0f, brightness * 100.0f, adjustedColor);
+  }
+  else
+  {
+    uint8_t *c = (wipeCount % 2) ? wipeSettings::color : wipeSettings::color1;
+    adjustedColor[0] = c[0] * brightness;
+    adjustedColor[1] = c[1] * brightness;
+    adjustedColor[2] = c[2] * brightness;
+  }
+
+  for (int l = 0; l < MIN(wipePos, LED_BUFFER_SIZE_COLLAR); ++l)
+  {
+    ledBufferCollar[l * 3] = adjustedColor[1];
+    ledBufferCollar[l * 3 + 1] = adjustedColor[0];
+    ledBufferCollar[l * 3 + 2] = adjustedColor[2];
+  }
 }
